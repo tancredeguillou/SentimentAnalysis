@@ -40,7 +40,6 @@ def collate_batch(batch):
     text_list = torch.cat(text_list)
     return label_list.to(device), text_list.to(device), offsets.to(device)
 
-train_iter = AG_NEWS(split='train')
 dataloader = DataLoader(train_iter, batch_size=8, shuffle=False, collate_fn=collate_batch)
 
 
@@ -86,26 +85,26 @@ def evaluate(model,dataloader):
     return total_acc/total_count
 
 def train(model):
-  print('Start of the training')
-  total_accu = None
-  for epoch in range(1, EPOCHS + 1):
-    print(f'Epoch {epoch}')
-    epoch_start_time = time.time()
-    train_epoch(model,train_dataloader,epoch)
-    accu_val = evaluate(model,valid_dataloader)
-    if total_accu is not None and total_accu > accu_val:
-      scheduler.step()
-    else:
-       total_accu = accu_val
-    print('-' * 59)
-    print('| end of epoch {:3d} | time: {:5.2f}s | '
-          'valid accuracy {:8.3f} '.format(epoch,
-                                           time.time() - epoch_start_time,
-                                           accu_val))
-    print('-' * 59)
-  print('Checking the results of test dataset.')
-  accu_test = evaluate(model,test_dataloader)
-  print('test accuracy {:8.3f}'.format(accu_test))
+    print('Start of the training')
+    total_accu = None
+    for epoch in range(1, EPOCHS + 1):
+        print(f'Epoch {epoch}')
+        epoch_start_time = time.time()
+        train_epoch(model,train_dataloader,epoch)
+        accu_val = evaluate(model,valid_dataloader)
+        if total_accu is not None and total_accu > accu_val:
+            scheduler.step()
+        else:
+            total_accu = accu_val
+        print('-' * 59)
+        print('| end of epoch {:3d} | time: {:5.2f}s | '
+            'valid accuracy {:8.3f} '.format(epoch,
+                                            time.time() - epoch_start_time,
+                                            accu_val))
+        print('-' * 59)
+    print('Checking the results of test dataset.')
+    accu_test = evaluate(model,test_dataloader)
+    print('test accuracy {:8.3f}'.format(accu_test))
 
 # Define Hyperparameters
 EPOCHS = 10 # epoch
@@ -160,11 +159,6 @@ ex_text_str = "MEMPHIS, Tenn. – Four days ago, Jon Rahm was \
 model_linear = model_linear.to("cpu")
 
 print("This is a %s news" %ag_news_label[predict(model_linear,ex_text_str, text_pipeline)])
-
-# Hyperparameters
-EPOCHS = 10 # epoch
-LR = 5  # learning rate
-BATCH_SIZE = 64 # batch size for training
 
 train_iter = AG_NEWS(split='train')
 num_class = len(set([label for (label, text) in train_iter]))
