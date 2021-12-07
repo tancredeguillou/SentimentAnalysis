@@ -2,10 +2,10 @@ import torch
 from torchtext.datasets import AG_NEWS
 from torchtext.vocab import build_vocab_from_iterator
 from torch.utils.data import DataLoader
-from torch import nn
 import time
 from torch.utils.data.dataset import random_split
 from torchtext.data.functional import to_map_style_dataset
+from classifiers import TextClassificationLinear, TextClassificationMLP
 
 train_iter = AG_NEWS(split='train')
 
@@ -42,24 +42,6 @@ def collate_batch(batch):
 
 train_iter = AG_NEWS(split='train')
 dataloader = DataLoader(train_iter, batch_size=8, shuffle=False, collate_fn=collate_batch)
-
-class TextClassificationLinear(nn.Module):
-
-    def __init__(self, vocab_size, embed_dim, num_class):
-        super(TextClassificationLinear, self).__init__()
-        self.embedding = nn.EmbeddingBag(vocab_size, embed_dim, sparse=True)
-        self.fc = nn.Linear(embed_dim, num_class)
-        self.init_weights()
-
-    def init_weights(self):
-        initrange = 0.5
-        self.embedding.weight.data.uniform_(-initrange, initrange)
-        self.fc.weight.data.uniform_(-initrange, initrange)
-        self.fc.bias.data.zero_()
-
-    def forward(self, text, offsets):
-        embedded = self.embedding(text, offsets)
-        return self.fc(embedded)
 
 
 # Construct the main model
@@ -150,3 +132,52 @@ test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE,
 criterion = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model_linear.parameters(), lr=LR)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1.0, gamma=0.3)
+
+ag_news_label = {1: "World",
+                 2: "Sports",
+                 3: "Business",
+                 4: "Sci/Tec"}
+
+def predict(model,text, text_pipeline):
+    with torch.no_grad():
+        text = torch.tensor(text_pipeline(text))
+        output = model(text, torch.tensor([0]))
+        print(f'Scores : {output}')
+        return output.argmax(1).item() + 1
+
+ex_text_str = "MEMPHIS, Tenn. – Four days ago, Jon Rahm was \
+    enduring the season’s worst weather conditions on Sunday at The \
+    Open on his way to a closing 75 at Royal Portrush, which \
+    considering the wind and the rain was a respectable showing. \
+    Thursday’s first round at the WGC-FedEx St. Jude Invitational \
+    was another story. With temperatures in the mid-80s and hardly any \
+    wind, the Spaniard was 13 strokes better in a flawless round. \
+    Thanks to his best putting performance on the PGA Tour, Rahm \
+    finished with an 8-under 62 for a three-stroke lead, which \
+    was even more impressive considering he’d never played the \
+    front nine at TPC Southwind."
+
+model_linear = model_linear.to("cpu")
+
+print("This is a %s news" %ag_news_label[predict(model_linear,ex_text_str, text_pipeline)])
+
+# Hyperparameters
+EPOCHS = 10 # epoch
+LR = 5  # learning rate
+BATCH_SIZE = 64 # batch size for training
+
+train_iter = AG_NEWS(split='train')
+num_class = len(set([label for (label, text) in train_iter]))
+vocab_size = len(vocab)
+emsize = 64
+hidden_size1 = 64
+hidden_size2 = 32
+hidden_size3 = 16
+
+model_mlp = TextClassificationMLP(vocab_size, emsize, num_class, hidden_size1, hidden_size2, hidden_size3).to(device)
+
+optimizer = torch.optim.SGD(model_mlp.parameters(), lr=LR)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1.0, gamma=0.3)
+train(model_mlp)
+
+print("This is a %s news" %ag_news_label[predict(model_mlp,ex_text_str, text_pipeline)])
